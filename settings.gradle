@@ -1,0 +1,2 @@
+include ':app', ':sms'
+rootProject.name='BPC_DIS_Sms'
