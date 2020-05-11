@@ -5,10 +5,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.telephony.SmsMessage;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class SmsBroadcastReceiver extends BroadcastReceiver {
 
+    private List<String> smsProviderNumbers;
     private SmsReceiveListener smsReceiveListener;
-    private String smsProviderNumber;
 
     public SmsBroadcastReceiver() {
 
@@ -16,34 +19,42 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
 
     public SmsBroadcastReceiver(String smsProviderNumber, SmsReceiveListener smsReceiveListener) {
         this.smsReceiveListener = smsReceiveListener;
-        this.smsProviderNumber = smsProviderNumber;
+        this.smsProviderNumbers = new ArrayList<>();
+        this.smsProviderNumbers.add(smsProviderNumber);
+    }
+
+    public SmsBroadcastReceiver(List<String> smsProviderNumbers, SmsReceiveListener smsReceiveListener) {
+        this.smsReceiveListener = smsReceiveListener;
+        this.smsProviderNumbers = smsProviderNumbers;
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (smsReceiveListener == null) {
-            return;
-        }
-        if (intent.getExtras() == null) {
-            return;
-        }
-        Object[] objects = (Object[]) intent.getExtras().get("pdus");
-        if (objects == null) {
-            return;
-        }
-        StringBuilder message = new StringBuilder();
-        for (Object object : objects) {
-            SmsMessage smsMessage = SmsMessage.createFromPdu((byte[]) object);
-            String sender = smsMessage.getDisplayOriginatingAddress();
-            if (!sender.equals(smsProviderNumber)) {
-                return;
+        if (smsReceiveListener != null) {
+            if (intent.getExtras() != null) {
+                Object[] objects = (Object[]) intent.getExtras().get("pdus");
+                if (objects != null) {
+                    boolean isFromRequestedProviderNumber = false;
+                    StringBuilder message = new StringBuilder();
+                    for (Object object : objects) {
+                        SmsMessage smsMessage = SmsMessage.createFromPdu((byte[]) object);
+                        message.append(smsMessage.getMessageBody());
+                        String sender = smsMessage.getDisplayOriginatingAddress();
+                        for (String smsProviderNumber : smsProviderNumbers) {
+                            if (smsProviderNumber.equals(sender)) {
+                                isFromRequestedProviderNumber = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (isFromRequestedProviderNumber) {
+                        if (!String.valueOf(message).isEmpty()) {
+                            smsReceiveListener.messageReceived(message.toString());
+                        }
+                    }
+                }
             }
-            message.append(smsMessage.getMessageBody());
         }
-        if (message == null) {
-            return;
-        }
-        smsReceiveListener.messageReceived(message.toString());
     }
 
 }
